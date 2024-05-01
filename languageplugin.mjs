@@ -1,8 +1,12 @@
+// @ts-check
 import { makeExtendSchemaPlugin, gql } from "postgraphile/utils";
-import { each, applyTransforms, loadOne, object } from "grafast";
 
 export const MyPlugin = makeExtendSchemaPlugin((build) => {
-  const { languages } = build.input.pgRegistry.pgResources;
+  const { user_config } = build.input.pgRegistry.pgResources;
+  const {
+    dataplanPg: { TYPES },
+    sql,
+  } = build;
 
   return {
     typeDefs: gql`
@@ -10,21 +14,19 @@ export const MyPlugin = makeExtendSchemaPlugin((build) => {
         totalLanguages: Int
       }
     `,
-
     plans: {
       User: {
-        totalLanguages() {
-          const $allLanguages = languages.find();
-          const $materializedLanguages = each($allLanguages, (lg) =>
-            object({ language: lg.get("language") })
-          );
-          const $objs = applyTransforms($materializedLanguages);
-
-          const $res = loadOne($objs, (allObjs) =>
-            allObjs.map((x) => allObjs.length)
-          );
-
-          return $res;
+        totalLanguages($user) {
+          const $configs = user_config.find({ user_id: $user.get("id") });
+          // Currently @dataplan/pg marks `.clone()` as private (unsure why),
+          // but it's the easiest way if you're not dealing with a connection
+          // to take an existing PgSelectStep and turn it into a PgSelectStep
+          // in aggregate mode.
+          /** @type {any} */
+          const $configs2 = $configs;
+          /** @type {import("@dataplan/pg").PgSelectStep} */
+          const $agg = $configs2.clone("aggregate");
+          return $agg.single().select(sql`count(*)`, TYPES.bigint);
         },
       },
     },

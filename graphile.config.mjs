@@ -12,6 +12,9 @@ const preset = {
         "postgres://postgres:mysecretpassword1@localhost:5432/grafast_repro",
     }),
   ],
+  grafast: {
+    explain: true
+  },
   grafserv: { watch: true },
   plugins: [MyPlugin],
 };
